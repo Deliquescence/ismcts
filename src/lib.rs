@@ -11,6 +11,8 @@ pub trait Game: Clone {
 
     fn next_player(&self) -> &Self::Player;
 
+    fn environment_player(&self) -> &Self::Player;
+
     fn available_moves(&self) -> Self::MoveList;
 
     fn make_move(&mut self, mov: &Self::Move);
@@ -20,23 +22,30 @@ pub trait Game: Clone {
 
 
 struct Node<G: Game> {
-    mov: G::Move,
+    /// Move which entered this node
+    mov: Option<G::Move>,
     parent: Option<Rc<Node<G>>>,
     children: Vec<Node<G>>,
     player_just_moved: G::Player,
 }
 
 impl<G: Game> Node<G> {
-    fn untried_moves(&self, legal_moves: G::MoveList) -> G::MoveList {
+    fn untried_moves(&self, legal_moves: &G::MoveList) -> G::MoveList {
         unimplemented!();
     }
 
-    fn select_child(&self, legal_moves: G::MoveList) -> Self {
+    fn select_child(&self, legal_moves: &G::MoveList) -> Self {
         unimplemented!();
     }
 
-    fn add_child(&mut self) {
-        unimplemented!();
+    fn add_child(mut parent: Rc<Self>, mov: G::Move, player: G::Player) {
+        let p = Rc::clone(&parent);
+        Rc::get_mut(&mut parent).unwrap().children.push(Node {
+            mov: Some(mov),
+            parent: Some(p),
+            children: Vec::new(),
+            player_just_moved: player,
+        });
     }
 
     fn update(&mut self, result: f64) {
@@ -45,8 +54,39 @@ impl<G: Game> Node<G> {
 }
 
 
-pub trait ISMCTS {
+pub trait ISMCTS<G: Game> {
 
-    fn select(&self);
+    fn ismcts(&mut self, root_state: G, n_iterations: usize) {
+
+        let root_node: Node<G> = Node {
+            mov: None,
+            parent: None,
+            children: Vec::new(),
+            player_just_moved: root_state.environment_player().clone(),
+        };
+
+        let mut node = root_node;
+        for _i in 0..n_iterations {
+            let mut state = root_state.clone();
+
+            // Determinize
+            state.randomize_determination(root_state.current_player());
+
+            // Select
+            let available_moves = state.available_moves();
+            while let Some(_) = node
+                .untried_moves(&available_moves)
+                .into_iter()
+                .next()
+            {
+                node = node.select_child(&available_moves);
+                state.make_move(&node.mov.clone().unwrap());
+            }
+
+            //Expand
+
+        }
+
+    }
 
 }
