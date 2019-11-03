@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub trait Game: Clone {
     type Move: Clone;
@@ -24,7 +24,7 @@ pub trait Game: Clone {
 struct Node<G: Game> {
     /// Move which entered this node
     mov: Option<G::Move>,
-    parent: Option<Rc<Node<G>>>,
+    parent: Option<Arc<Mutex<Node<G>>>>,
     children: Vec<Node<G>>,
     player_just_moved: G::Player,
 }
@@ -38,9 +38,9 @@ impl<G: Game> Node<G> {
         unimplemented!();
     }
 
-    fn add_child(mut parent: Rc<Self>, mov: G::Move, player: G::Player) {
-        let p = Rc::clone(&parent);
-        Rc::get_mut(&mut parent).unwrap().children.push(Node {
+    fn add_child(mut parent: Arc<Mutex<Self>>, mov: G::Move, player: G::Player) {
+        let p = Arc::clone(&parent);
+        parent.lock().unwrap().children.push(Node {
             mov: Some(mov),
             parent: Some(p),
             children: Vec::new(),
