@@ -1,5 +1,6 @@
-use std::sync::{Arc, Mutex};
 
+use rand::prelude::*;
+use std::sync::{Arc, Mutex};
 pub trait Game: Clone {
     type Move: Clone;
     type Player: Clone;
@@ -18,6 +19,18 @@ pub trait Game: Clone {
     fn make_move(&mut self, mov: &Self::Move);
 
     fn result(&self, player: &Self::Player) -> Option<f64>;
+
+    fn random_rollout(&mut self) {
+        let mut rng = thread_rng();
+        while self.result(self.current_player()).is_none() {
+            let mov = self.available_moves().into_iter().choose(&mut rng);
+            if let Some(m) = mov {
+                self.make_move(&m);
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 
