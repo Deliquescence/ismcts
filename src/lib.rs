@@ -27,6 +27,9 @@ struct Node<G: Game> {
     parent: Option<Arc<Mutex<Node<G>>>>,
     children: Vec<Node<G>>,
     player_just_moved: G::Player,
+    visit_count: usize,
+    availability_count: usize,
+    reward: f64,
 }
 
 impl<G: Game> Node<G> {
@@ -45,6 +48,9 @@ impl<G: Game> Node<G> {
             parent: Some(p),
             children: Vec::new(),
             player_just_moved: player,
+            visit_count: 0,
+            availability_count: 0,
+            reward: 0_f64,
         });
     }
 
@@ -63,6 +69,9 @@ pub trait ISMCTS<G: Game> {
             parent: None,
             children: Vec::new(),
             player_just_moved: root_state.environment_player().clone(),
+            visit_count: 0,
+            availability_count: 0,
+            reward: 0_f64,
         };
 
         let mut node = root_node;
@@ -74,11 +83,7 @@ pub trait ISMCTS<G: Game> {
 
             // Select
             let available_moves = state.available_moves();
-            while let Some(_) = node
-                .untried_moves(&available_moves)
-                .into_iter()
-                .next()
-            {
+            while let Some(_) = node.untried_moves(&available_moves).into_iter().next() {
                 node = node.select_child(&available_moves);
                 state.make_move(&node.mov.clone().unwrap());
             }
