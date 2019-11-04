@@ -1,6 +1,6 @@
-
 use rand::prelude::*;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
+
 pub trait Game: Clone {
     type Move: Clone;
     type Player: Clone;
@@ -33,13 +33,17 @@ pub trait Game: Clone {
     }
 }
 
-
 struct Node<G: Game> {
     /// Move which entered this node
     mov: Option<G::Move>,
-    parent: Option<Arc<Mutex<Node<G>>>>,
-    children: Vec<Node<G>>,
+    parent: Option<Arc<Node<G>>>,
+    children: RwLock<Vec<Arc<Node<G>>>>,
     player_just_moved: G::Player,
+    statistics: RwLock<NodeStatistics>,
+}
+
+#[derive(Debug, Default)]
+struct NodeStatistics {
     visit_count: usize,
     availability_count: usize,
     reward: f64,
@@ -50,21 +54,21 @@ impl<G: Game> Node<G> {
         unimplemented!();
     }
 
-    fn select_child(&self, legal_moves: &G::MoveList) -> Self {
+    fn select_child(&self, legal_moves: &G::MoveList) -> Arc<Node<G>> {
         unimplemented!();
     }
 
-    fn add_child(mut parent: Arc<Mutex<Self>>, mov: G::Move, player: G::Player) {
-        let p = Arc::clone(&parent);
-        parent.lock().unwrap().children.push(Node {
+    fn add_child(self: Arc<Self>, mov: G::Move, player: G::Player) -> Arc<Node<G>> {
+        let p = Arc::clone(&self);
+        let child = Arc::new(Node {
             mov: Some(mov),
             parent: Some(p),
-            children: Vec::new(),
+            children: Default::default(),
             player_just_moved: player,
-            visit_count: 0,
-            availability_count: 0,
-            reward: 0_f64,
+            statistics: Default::default(),
         });
+        self.children.write().unwrap().push(Arc::clone(&child));
+        child
     }
 
     fn update(&mut self, result: f64) {
@@ -77,32 +81,45 @@ pub trait ISMCTS<G: Game> {
 
     fn ismcts(&mut self, root_state: G, n_iterations: usize) {
 
-        let root_node: Node<G> = Node {
+        let root_node: Arc<Node<G>> = Arc::new(Node {
             mov: None,
             parent: None,
-            children: Vec::new(),
+            children: Default::default(),
             player_just_moved: root_state.environment_player().clone(),
-            visit_count: 0,
-            availability_count: 0,
-            reward: 0_f64,
-        };
+            statistics: Default::default(),
+        });
 
-        let mut node = root_node;
+        let mut node = Arc::clone(&root_node);
         for _i in 0..n_iterations {
+            let mut rng = thread_rng();
             let mut state = root_state.clone();
 
             // Determinize
             state.randomize_determination(root_state.current_player());
 
             // Select
-            let available_moves = state.available_moves();
-            while let Some(_) = node.untried_moves(&available_moves).into_iter().next() {
+            let mut available_moves = state.available_moves();
+            while node
+                .untried_moves(&available_moves)
+                .into_iter()
+                .next()
+                .is_none()
+            {
                 node = node.select_child(&available_moves);
                 state.make_move(&node.mov.clone().unwrap());
+                available_moves = state.available_moves();
             }
 
             //Expand
-
+            if let Some(m) = node
+                .untried_moves(&available_moves)
+                .into_iter()
+                .choose(&mut rng)
+            {
+                let player = state.current_player().clone();
+                state.make_move(&m);
+                node = node.add_child(m, player);
+            }
         }
 
     }
