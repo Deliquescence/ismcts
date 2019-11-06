@@ -38,7 +38,7 @@ struct Node<G: Game> {
     mov: Option<G::Move>,
     parent: Option<Arc<Node<G>>>,
     children: RwLock<Vec<Arc<Node<G>>>>,
-    player_just_moved: G::Player,
+    player_just_moved: Option<G::Player>,
     statistics: RwLock<NodeStatistics>,
 }
 
@@ -64,15 +64,20 @@ impl<G: Game> Node<G> {
             mov: Some(mov),
             parent: Some(p),
             children: Default::default(),
-            player_just_moved: player,
+            player_just_moved: Some(player),
             statistics: Default::default(),
         });
         self.children.write().unwrap().push(Arc::clone(&child));
         child
     }
 
-    fn update(&mut self, result: f64) {
-        unimplemented!();
+    fn update(&self, terminal_state: &G) {
+        let mut statistics = self.statistics.write().unwrap();
+
+        statistics.visit_count += 1;
+        if let Some(p) = &self.player_just_moved {
+            statistics.reward += terminal_state.result(&p).unwrap_or_default();
+        }
     }
 }
 
@@ -85,14 +90,14 @@ pub trait ISMCTS<G: Game> {
             mov: None,
             parent: None,
             children: Default::default(),
-            player_just_moved: root_state.environment_player().clone(),
+            player_just_moved: None,
             statistics: Default::default(),
         });
 
-        let mut node = Arc::clone(&root_node);
         for _i in 0..n_iterations {
             let mut rng = thread_rng();
             let mut state = root_state.clone();
+            let mut node = Arc::clone(&root_node);
 
             // Determinize
             state.randomize_determination(root_state.current_player());
@@ -119,6 +124,13 @@ pub trait ISMCTS<G: Game> {
                 let player = state.current_player().clone();
                 state.make_move(&m);
                 node = node.add_child(m, player);
+            }
+
+            //Backprop
+            let mut backprop_node = Some(node);
+            while let Some(n) = backprop_node {
+                n.update(&state);
+                backprop_node = n.parent.clone();
             }
         }
 
