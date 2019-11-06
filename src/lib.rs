@@ -2,9 +2,9 @@ use rand::prelude::*;
 use std::sync::{Arc, RwLock};
 
 pub trait Game: Clone {
-    type Move: Clone;
+    type Move: Clone + PartialEq;
     type Player: Clone;
-    type MoveList: std::iter::IntoIterator<Item = Self::Move>;
+    type MoveList: Clone + std::iter::IntoIterator<Item = Self::Move>;
 
     fn randomize_determination(&mut self, observer: &Self::Player);
 
@@ -50,8 +50,24 @@ struct NodeStatistics {
 }
 
 impl<G: Game> Node<G> {
-    fn untried_moves(&self, legal_moves: &G::MoveList) -> G::MoveList {
-        unimplemented!();
+    fn move_tried(&self, mov: &G::Move) -> bool {
+        self.children
+            .read()
+            .unwrap()
+            .iter()
+            .any(|c| c.mov.as_ref().unwrap() == mov)
+    }
+
+    fn untried_moves(
+        &self,
+        legal_moves: &G::MoveList,
+    ) -> impl std::iter::IntoIterator<Item = G::Move> + '_ {
+
+        legal_moves
+            .clone()
+            .into_iter()
+            .filter(|m| !self.move_tried(m))
+            .collect::<Vec<_>>()
     }
 
     fn select_child(&self, legal_moves: &G::MoveList) -> Arc<Node<G>> {
