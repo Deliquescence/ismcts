@@ -1,5 +1,8 @@
+
+use ordered_float::OrderedFloat;
 use rand::prelude::*;
 use std::sync::{Arc, RwLock};
+
 
 pub trait Game: Clone {
     type Move: Clone + PartialEq;
@@ -49,6 +52,13 @@ struct NodeStatistics {
     reward: f64,
 }
 
+impl NodeStatistics {
+    pub fn ucb(&self, exploration: f64) -> f64 {
+        (self.reward / self.visit_count as f64)
+            + exploration * ((self.availability_count as f64).ln() / self.visit_count as f64).sqrt()
+    }
+}
+
 impl<G: Game> Node<G> {
     fn move_tried(&self, mov: &G::Move) -> bool {
         self.children
@@ -70,8 +80,20 @@ impl<G: Game> Node<G> {
             .collect::<Vec<_>>()
     }
 
-    fn select_child(&self, legal_moves: &G::MoveList) -> Arc<Node<G>> {
-        unimplemented!();
+    fn select_child(&self, legal_moves: &G::MoveList) -> Option<Arc<Node<G>>> {
+        let legal_moves: Vec<_> = legal_moves.clone().into_iter().collect();
+        let children = self.children.read().unwrap();
+        let legal_children = children
+            .iter()
+            .filter(|c| legal_moves.iter().any(|m| c.mov.as_ref().unwrap() == m));
+
+        let choice = legal_children
+            .clone()
+            .max_by_key(|c| OrderedFloat::from(c.statistics.read().unwrap().ucb(0.7)))
+            .cloned();
+        //Update availibility count now
+        legal_children.for_each(|c| c.statistics.write().unwrap().availability_count += 1);
+        choice
     }
 
     fn add_child(self: Arc<Self>, mov: G::Move, player: G::Player) -> Arc<Node<G>> {
@@ -126,7 +148,7 @@ pub trait ISMCTS<G: Game> {
                 .next()
                 .is_none()
             {
-                node = node.select_child(&available_moves);
+                node = node.select_child(&available_moves).unwrap();
                 state.make_move(&node.mov.clone().unwrap());
                 available_moves = state.available_moves();
             }
