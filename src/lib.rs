@@ -164,6 +164,9 @@ pub trait ISMCTS<G: Game> {
                 node = node.add_child(m, player);
             }
 
+            //Simulate
+            state.random_rollout();
+
             //Backprop
             let mut backprop_node = Some(node);
             while let Some(n) = backprop_node {
