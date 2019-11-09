@@ -1,8 +1,6 @@
-
 use ordered_float::OrderedFloat;
 use rand::prelude::*;
 use std::sync::{Arc, RwLock};
-
 
 pub trait Game: Clone {
     type Move: Clone + PartialEq;
@@ -14,8 +12,6 @@ pub trait Game: Clone {
     fn current_player(&self) -> &Self::Player;
 
     fn next_player(&self) -> &Self::Player;
-
-    fn environment_player(&self) -> &Self::Player;
 
     fn available_moves(&self) -> Self::MoveList;
 
@@ -72,7 +68,6 @@ impl<G: Game> Node<G> {
         &self,
         legal_moves: &G::MoveList,
     ) -> impl std::iter::IntoIterator<Item = G::Move> + '_ {
-
         legal_moves
             .clone()
             .into_iter()
@@ -119,11 +114,8 @@ impl<G: Game> Node<G> {
     }
 }
 
-
 pub trait ISMCTS<G: Game> {
-
-    fn ismcts(&mut self, root_state: G, n_iterations: usize) {
-
+    fn ismcts(&mut self, root_state: G, n_iterations: usize) -> G::Move {
         let root_node: Arc<Node<G>> = Arc::new(Node {
             mov: None,
             parent: None,
@@ -175,6 +167,13 @@ pub trait ISMCTS<G: Game> {
             }
         }
 
+        let children = root_node.children.read().unwrap();
+        children
+            .iter()
+            .max_by_key(|c| c.statistics.read().unwrap().visit_count)
+            .unwrap()
+            .mov
+            .clone()
+            .unwrap()
     }
-
 }
