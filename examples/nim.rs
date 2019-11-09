@@ -86,6 +86,29 @@ pub struct NimIsmcts {}
 
 impl ISMCTS<NimState> for NimIsmcts {}
 
+pub fn human_turn(game: &mut NimState) {
+    let read_num = || -> usize {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        input.trim().parse().unwrap_or_default()
+    };
+
+    println!("{:?}", &game);
+    println!("Take from which heap (0-indexed):");
+    let heap = read_num();
+    println!("Take how many:");
+    let amount = read_num();
+    game.make_move(&NimMove { heap, amount });
+}
+
+pub fn ismcts_turn(game: &mut NimState) {
+    //CPU turn
+    let mut ismcts = NimIsmcts {};
+    let mov = ismcts.ismcts(game.clone(), 1000);
+    println!("ISMCTS Move: {:?}", mov);
+    game.make_move(&mov);
+}
+
 pub fn main() {
     // Second player = human
     // Pretend the CPU moved first and got into a winning position
@@ -96,25 +119,10 @@ pub fn main() {
         player_to_move: NimPlayer::Second,
     };
 
-    let read_num = || -> usize {
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        input.trim().parse().unwrap_or_default()
-    };
-
     while game.result(&NimPlayer::Second).is_none() {
-        println!("{:?}", game);
-        println!("Take from which heap (0-indexed):");
-        let heap = read_num();
-        println!("Take how many:");
-        let amount = read_num();
-        game.make_move(&NimMove { heap, amount });
+        human_turn(&mut game);
 
-		//CPU turn
-		let mut ismcts = NimIsmcts {};
-        let mov = ismcts.ismcts(game.clone(), 1000);
-        println!("ISMCTS Move: {:?}", mov);
-        game.make_move(&mov);
+        ismcts_turn(&mut game);
     }
 
     match game.result(&NimPlayer::Second) {
