@@ -113,7 +113,7 @@ pub fn human_move(game: &mut NimState) -> NimMove {
 
 pub fn ismcts_move(game: &mut NimState) -> NimMove {
     let mut ismcts = NimIsmcts {};
-    ismcts.ismcts(game.clone(), 1000000)
+    ismcts.ismcts(game.clone(), 4, 1000000 / 4)
 }
 
 pub fn math_move(game: &mut NimState) -> NimMove {

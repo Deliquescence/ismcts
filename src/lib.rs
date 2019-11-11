@@ -1,10 +1,12 @@
+use crossbeam::thread;
 use ordered_float::OrderedFloat;
 use rand::prelude::*;
+use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock};
 
-pub trait Game: Clone {
-    type Move: Clone + PartialEq;
-    type Player: Clone;
+pub trait Game: Clone + Send + Sync {
+    type Move: Clone + PartialEq + Send + Sync;
+    type Player: Clone + Send + Sync;
     type MoveList: Clone + std::iter::IntoIterator<Item = Self::Move>;
 
     fn randomize_determination(&mut self, observer: &Self::Player);
@@ -118,7 +120,7 @@ impl<G: Game> Node<G> {
 }
 
 pub trait ISMCTS<G: Game> {
-    fn ismcts(&mut self, root_state: G, n_iterations: usize) -> G::Move {
+    fn ismcts(&mut self, root_state: G, n_threads: usize, n_iterations_per_thread: usize) -> G::Move {
         let root_node: Arc<Node<G>> = Arc::new(Node {
             mov: None,
             parent: None,
@@ -127,49 +129,14 @@ pub trait ISMCTS<G: Game> {
             statistics: Default::default(),
         });
 
-        for _i in 0..n_iterations {
-            let mut rng = thread_rng();
-            let mut state = root_state.clone();
-            let mut node = Arc::clone(&root_node);
-
-            // Determinize
-            state.randomize_determination(root_state.current_player());
-
-            // Select
-            let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
-            while !available_moves.is_empty()
-                && node
-                    .untried_moves(&available_moves)
-                    .into_iter()
-                    .next()
-                    .is_none()
-            {
-                node = node.select_child(&available_moves).unwrap();
-                state.make_move(&node.mov.clone().unwrap());
-                available_moves = state.available_moves().into_iter().collect();
+        thread::scope(|s| {
+            for _ in 0..n_threads {
+                s.spawn(|_| {
+                    ismcts_work_thread(root_state.clone(), Arc::clone(&root_node), n_iterations_per_thread)
+                });
             }
-
-            //Expand
-            if let Some(m) = node
-                .untried_moves(&available_moves)
-                .into_iter()
-                .choose(&mut rng)
-            {
-                let player = state.current_player().clone();
-                state.make_move(&m);
-                node = node.add_child(m, player);
-            }
-
-            //Simulate
-            state.random_rollout();
-
-            //Backprop
-            let mut backprop_node = Some(node);
-            while let Some(n) = backprop_node {
-                n.update(&state);
-                backprop_node = n.parent.clone();
-            }
-        }
+        })
+        .unwrap();
 
         let children = root_node.children.read().unwrap();
         children
@@ -179,5 +146,51 @@ pub trait ISMCTS<G: Game> {
             .mov
             .clone()
             .unwrap()
+    }
+}
+
+fn ismcts_work_thread<G: Game>(root_state: G, root_node: Arc<Node<G>>, n_iterations: usize) {
+    for _i in 0..n_iterations {
+        let mut rng = thread_rng();
+        let mut state = root_state.clone();
+        let mut node = Arc::clone(&root_node);
+
+        // Determinize
+        state.randomize_determination(root_state.current_player());
+
+        // Select
+        let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
+        while !available_moves.is_empty()
+            && node
+                .untried_moves(&available_moves)
+                .into_iter()
+                .next()
+                .is_none()
+        {
+            node = node.select_child(&available_moves).unwrap();
+            state.make_move(&node.mov.clone().unwrap());
+            available_moves = state.available_moves().into_iter().collect();
+        }
+
+        //Expand
+        if let Some(m) = node
+            .untried_moves(&available_moves)
+            .into_iter()
+            .choose(&mut rng)
+        {
+            let player = state.current_player().clone();
+            state.make_move(&m);
+            node = node.add_child(m, player);
+        }
+
+        //Simulate
+        state.random_rollout();
+
+        //Backprop
+        let mut backprop_node = Some(node);
+        while let Some(n) = backprop_node {
+            n.update(&state);
+            backprop_node = n.parent.clone();
+        }
     }
 }
