@@ -26,13 +26,23 @@ pub struct NimMove {
     pub amount: usize,
 }
 
+impl NimState {
+    pub fn get_largest_heap(&self) -> Option<(usize, usize)> {
+        self.heaps
+            .iter()
+            .enumerate()
+            .max_by_key(|(_i, &c)| c)
+            .map(|(i, &c)| (i, c))
+    }
+}
+
 impl Game for NimState {
     type Move = NimMove;
     type Player = NimPlayer;
     type MoveList = Vec<NimMove>;
 
     fn randomize_determination(&mut self, _observer: &Self::Player) {
-        //No-op, perfect information
+        //No-op
     }
 
     fn current_player(&self) -> &Self::Player {
@@ -86,7 +96,7 @@ pub struct NimIsmcts {}
 
 impl ISMCTS<NimState> for NimIsmcts {}
 
-pub fn human_turn(game: &mut NimState) {
+pub fn human_move(game: &mut NimState) -> NimMove {
     let read_num = || -> usize {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
@@ -98,15 +108,62 @@ pub fn human_turn(game: &mut NimState) {
     let heap = read_num();
     println!("Take how many:");
     let amount = read_num();
-    game.make_move(&NimMove { heap, amount });
+    NimMove { heap, amount }
 }
 
-pub fn ismcts_turn(game: &mut NimState) {
-    //CPU turn
+pub fn ismcts_move(game: &mut NimState) -> NimMove {
     let mut ismcts = NimIsmcts {};
-    let mov = ismcts.ismcts(game.clone(), 1000);
-    println!("ISMCTS Move: {:?}", mov);
-    game.make_move(&mov);
+    ismcts.ismcts(game.clone(), 1000000)
+}
+
+pub fn math_move(game: &mut NimState) -> NimMove {
+    //https://en.wikipedia.org/wiki/Nim
+
+    let is_endgame = game.heaps.iter().filter(|c| **c > 1).count() <= 1;
+    if is_endgame && game.mode == NimMode::Misere {
+        let n_remaining_heaps = game.heaps.iter().filter(|c| **c > 0).count();
+        let (i_max, c_max) = game.get_largest_heap().unwrap();
+        if c_max == 1 && n_remaining_heaps % 2 == 1 {
+            //Losing position
+            println!("losing position");
+            NimMove {
+                heap: i_max,
+                amount: 1,
+            }
+        } else {
+            NimMove {
+                heap: i_max,
+                amount: c_max - (n_remaining_heaps % 2),
+            }
+        }
+    } else {
+        let nim_sum = game.heaps.iter().fold(0, |acc, amt| acc ^ amt);
+        if nim_sum == 0 {
+            //Losing position
+            println!("losing position");
+            let (i_max, _c_max) = game.get_largest_heap().unwrap();
+            NimMove {
+                heap: i_max,
+                amount: 1,
+            }
+        } else {
+            game.heaps
+                .iter()
+                .enumerate()
+                .find_map(|(i, amount)| {
+                    let target_size = amount ^ nim_sum;
+                    if target_size < *amount {
+                        Some(NimMove {
+                            heap: i,
+                            amount: amount - target_size,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .unwrap()
+        }
+    }
 }
 
 pub fn main() {
@@ -120,14 +177,22 @@ pub fn main() {
     };
 
     while game.result(&NimPlayer::Second).is_none() {
-        human_turn(&mut game);
+        let mov = math_move(&mut game);
+        println!("{:?}", &game);
+        println!("math Move: {:?}", mov);
+        game.make_move(&mov);
 
-        ismcts_turn(&mut game);
+        if game.result(&NimPlayer::Second).is_none() {
+            let mov = ismcts_move(&mut game);
+            println!("{:?}", &game);
+            println!("ismcts Move: {:?}", mov);
+            game.make_move(&mov);
+        }
     }
 
-    match game.result(&NimPlayer::Second) {
-        Some(x) if x < 0.0 => println!("Human loses!"),
-        Some(x) if x > 0.0 => println!("Human Wins!"),
+    match game.result(&NimPlayer::First) {
+        Some(x) if x < 0.0 => println!("ismcts loses!"),
+        Some(x) if x > 0.0 => println!("ismcts Wins!"),
         _ => unreachable!(),
     }
 }

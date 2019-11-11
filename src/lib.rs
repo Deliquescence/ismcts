@@ -64,10 +64,10 @@ impl<G: Game> Node<G> {
             .any(|c| c.mov.as_ref().unwrap() == mov)
     }
 
-    fn untried_moves(
-        &self,
-        legal_moves: &G::MoveList,
-    ) -> impl std::iter::IntoIterator<Item = G::Move> + '_ {
+    fn untried_moves<M>(&self, legal_moves: &M) -> impl std::iter::IntoIterator<Item = G::Move> + '_
+    where
+        M: Clone + std::iter::IntoIterator<Item = G::Move>,
+    {
         legal_moves
             .clone()
             .into_iter()
@@ -75,7 +75,10 @@ impl<G: Game> Node<G> {
             .collect::<Vec<_>>()
     }
 
-    fn select_child(&self, legal_moves: &G::MoveList) -> Option<Arc<Node<G>>> {
+    fn select_child<M>(&self, legal_moves: &M) -> Option<Arc<Node<G>>>
+    where
+        M: Clone + std::iter::IntoIterator<Item = G::Move>,
+    {
         let legal_moves: Vec<_> = legal_moves.clone().into_iter().collect();
         let children = self.children.read().unwrap();
         let legal_children = children
@@ -133,16 +136,17 @@ pub trait ISMCTS<G: Game> {
             state.randomize_determination(root_state.current_player());
 
             // Select
-            let mut available_moves = state.available_moves();
-            while node
-                .untried_moves(&available_moves)
-                .into_iter()
-                .next()
-                .is_none()
+            let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
+            while !available_moves.is_empty()
+                && node
+                    .untried_moves(&available_moves)
+                    .into_iter()
+                    .next()
+                    .is_none()
             {
                 node = node.select_child(&available_moves).unwrap();
                 state.make_move(&node.mov.clone().unwrap());
-                available_moves = state.available_moves();
+                available_moves = state.available_moves().into_iter().collect();
             }
 
             //Expand
