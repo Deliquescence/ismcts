@@ -116,8 +116,8 @@ pub fn ismcts_move(game: &mut NimState) -> NimMove {
     ismcts.ismcts(game.clone(), 4, 1000000 / 4)
 }
 
-pub fn math_move(game: &mut NimState) -> NimMove {
-    //https://en.wikipedia.org/wiki/Nim
+pub fn perfect_move(game: &mut NimState) -> NimMove {
+    // https://en.wikipedia.org/wiki/Nim#Example_implementation
 
     let is_endgame = game.heaps.iter().filter(|c| **c > 1).count() <= 1;
     if is_endgame && game.mode == NimMode::Misere {
@@ -167,9 +167,8 @@ pub fn math_move(game: &mut NimState) -> NimMove {
 }
 
 pub fn main() {
-    // Second player = human
-    // Pretend the CPU moved first and got into a winning position
-    // Test if ismcts can win
+    // Pretend the perfect algorithm moved first and got into a winning position
+    // Test if ismcts can maintain the win
     let mut game = NimState {
         heaps: vec![3, 5, 6],
         mode: NimMode::Misere,
@@ -177,22 +176,22 @@ pub fn main() {
     };
 
     while game.result(&NimPlayer::Second).is_none() {
-        let mov = math_move(&mut game);
+        let mov = perfect_move(&mut game);
         println!("{:?}", &game);
-        println!("math Move: {:?}", mov);
+        println!("Perfect move: {:?}", mov);
         game.make_move(&mov);
 
         if game.result(&NimPlayer::Second).is_none() {
             let mov = ismcts_move(&mut game);
             println!("{:?}", &game);
-            println!("ismcts Move: {:?}", mov);
+            println!("ISMCTS move: {:?}", mov);
             game.make_move(&mov);
         }
     }
 
     match game.result(&NimPlayer::First) {
-        Some(x) if x < 0.0 => println!("ismcts loses!"),
-        Some(x) if x > 0.0 => println!("ismcts Wins!"),
+        Some(x) if x < 0.0 => println!("ISMCTS Loses!"),
+        Some(x) if x > 0.0 => println!("ISMCTS Wins!"),
         _ => unreachable!(),
     }
 }
