@@ -120,7 +120,12 @@ impl<G: Game> Node<G> {
 }
 
 pub trait ISMCTS<G: Game> {
-    fn ismcts(&mut self, root_state: G, n_threads: usize, n_iterations_per_thread: usize) -> G::Move {
+    fn ismcts(
+        &mut self,
+        root_state: G,
+        n_threads: usize,
+        n_iterations_per_thread: usize,
+    ) -> G::Move {
         let root_node: Arc<Node<G>> = Arc::new(Node {
             mov: None,
             parent: None,
@@ -132,7 +137,11 @@ pub trait ISMCTS<G: Game> {
         thread::scope(|s| {
             for _ in 0..n_threads {
                 s.spawn(|_| {
-                    ismcts_work_thread(root_state.clone(), Arc::clone(&root_node), n_iterations_per_thread)
+                    ismcts_work_thread(
+                        root_state.clone(),
+                        Arc::clone(&root_node),
+                        n_iterations_per_thread,
+                    )
                 });
             }
         })
