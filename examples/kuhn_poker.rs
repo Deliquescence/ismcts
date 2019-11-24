@@ -213,7 +213,7 @@ pub fn playout_once(verbose: bool) -> f64 {
 
 pub fn ismcts_policy(state: &mut KPState) -> Option<KPMove> {
     let mut ismcts = IsmctsHandler::new(state.clone());
-    ismcts.ismcts(4, 10000 / 4);
+    ismcts.run_iterations(4, 10000 / 4);
     ismcts.best_move()
 }
 

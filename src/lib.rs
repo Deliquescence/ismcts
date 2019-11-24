@@ -139,7 +139,7 @@ impl<G: Game> IsmctsHandler<G> {
         }
     }
 
-    pub fn ismcts(&mut self, n_threads: usize, n_iterations_per_thread: usize) {
+    pub fn run_iterations(&mut self, n_threads: usize, n_iterations_per_thread: usize) {
         thread::scope(|s| {
             for _ in 0..n_threads {
                 s.spawn(|_| {

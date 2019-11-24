@@ -109,7 +109,7 @@ pub fn human_move(game: &mut NimState) -> NimMove {
 
 pub fn ismcts_move(game: &mut NimState) -> Option<NimMove> {
     let mut ismcts = IsmctsHandler::new(game.clone());
-    ismcts.ismcts(4, 1000000 / 4);
+    ismcts.run_iterations(4, 1000000 / 4);
     // ismcts.debug_select();
     ismcts.best_move()
 }
