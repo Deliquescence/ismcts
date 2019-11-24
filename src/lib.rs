@@ -3,6 +3,7 @@ use ordered_float::OrderedFloat;
 use rand::prelude::*;
 use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 pub trait Game: Clone + Send + Sync {
     type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
@@ -140,18 +141,19 @@ impl<G: Game> IsmctsHandler<G> {
     }
 
     pub fn run_iterations(&mut self, n_threads: usize, n_iterations_per_thread: usize) {
-        thread::scope(|s| {
-            for _ in 0..n_threads {
-                s.spawn(|_| {
-                    ismcts_work_thread(
-                        self.root_state.clone(),
-                        Arc::clone(&self.root_node),
-                        n_iterations_per_thread,
-                    )
-                });
-            }
-        })
-        .unwrap();
+        spawn_n_threads(n_threads, |_| {
+            ismcts_work_thread_iterations(
+                self.root_state.clone(),
+                Arc::clone(&self.root_node),
+                n_iterations_per_thread,
+            )
+        });
+    }
+
+    pub fn run_timed(&mut self, n_threads: usize, time: Duration) {
+        spawn_n_threads(n_threads, |_| {
+            ismcts_work_thread_timed(self.root_state.clone(), Arc::clone(&self.root_node), time)
+        });
     }
 
     pub fn best_move(&self) -> Option<G::Move> {
@@ -203,48 +205,84 @@ impl<G: Game> IsmctsHandler<G> {
     }
 }
 
-fn ismcts_work_thread<G: Game>(root_state: G, root_node: Arc<Node<G>>, n_iterations: usize) {
-    for _i in 0..n_iterations {
-        let mut rng = thread_rng();
-        let mut state = root_state.clone();
-        let mut node = Arc::clone(&root_node);
+fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
+    let mut rng = thread_rng();
 
-        // Determinize
-        state.randomize_determination(root_state.current_player());
+    // Determinize
+    state.randomize_determination(state.current_player());
 
-        // Select
-        let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
-        while !available_moves.is_empty()
-            && node
-                .untried_moves(&available_moves)
-                .into_iter()
-                .next()
-                .is_none()
-        {
-            node = node.select_child(&available_moves).unwrap();
-            state.make_move(&node.mov.clone().unwrap());
-            available_moves = state.available_moves().into_iter().collect();
-        }
-
-        //Expand
-        if let Some(m) = node
+    // Select
+    let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
+    while !available_moves.is_empty()
+        && node
             .untried_moves(&available_moves)
             .into_iter()
-            .choose(&mut rng)
-        {
-            let player_tag = state.current_player();
-            state.make_move(&m);
-            node = node.add_child(m, player_tag);
-        }
-
-        //Simulate
-        state.random_rollout();
-
-        //Backprop
-        let mut backprop_node = Some(node);
-        while let Some(n) = backprop_node {
-            n.update(&state);
-            backprop_node = n.parent.clone();
-        }
+            .next()
+            .is_none()
+    {
+        node = node.select_child(&available_moves).unwrap();
+        state.make_move(&node.mov.clone().unwrap());
+        available_moves = state.available_moves().into_iter().collect();
     }
+
+    //Expand
+    if let Some(m) = node
+        .untried_moves(&available_moves)
+        .into_iter()
+        .choose(&mut rng)
+    {
+        let player_tag = state.current_player();
+        state.make_move(&m);
+        node = node.add_child(m, player_tag);
+    }
+
+    //Simulate
+    state.random_rollout();
+
+    //Backprop
+    let mut backprop_node = Some(node);
+    while let Some(n) = backprop_node {
+        n.update(&state);
+        backprop_node = n.parent.clone();
+    }
+}
+
+fn ismcts_work_thread_iterations<G: Game>(
+    root_state: G,
+    root_node: Arc<Node<G>>,
+    n_iterations: usize,
+) {
+    for _i in 0..n_iterations {
+        let state = root_state.clone();
+        let node = Arc::clone(&root_node);
+
+        ismcts_one_iteration(state, node);
+    }
+}
+
+fn ismcts_work_thread_timed<G: Game>(root_state: G, root_node: Arc<Node<G>>, time: Duration) {
+    let start = Instant::now();
+    loop {
+        let duration = start.elapsed();
+        if duration > time {
+            break;
+        }
+        let state = root_state.clone();
+        let node = Arc::clone(&root_node);
+
+        ismcts_one_iteration(state, node);
+    }
+}
+
+fn spawn_n_threads<'env, F, T>(n_threads: usize, f: F)
+where
+    F: Copy + FnOnce(&crossbeam::thread::Scope<'env>) -> T + Send + 'env,
+    T: Send + 'env,
+{
+    thread::scope(|s| {
+        for _ in 0..n_threads {
+            s.spawn(f);
+        }
+    })
+    .unwrap();
 }
