@@ -187,8 +187,19 @@ impl<G: Game> IsmctsHandler<G> {
 
     pub fn debug_children(&self) {
         for c in self.root_node.children.read().unwrap().iter() {
-            dbg!(&c.statistics.read().unwrap());
+            dbg!(&c.mov);
+            dbg!(&*c.statistics.read().unwrap());
         }
+        let max_visit_count: usize = self
+            .root_node
+            .children
+            .read()
+            .unwrap()
+            .iter()
+            .map(|c| c.statistics.read().unwrap().visit_count)
+            .max()
+            .unwrap();
+        println!("Max visit count: {}", max_visit_count)
     }
 }
 
