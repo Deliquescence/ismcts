@@ -79,10 +79,10 @@ impl KPState {
 
 impl Game for KPState {
     type Move = KPMove;
-    type Player = KPPlayer;
+    type PlayerTag = KPPlayer;
     type MoveList = Vec<KPMove>;
 
-    fn randomize_determination(&mut self, observer: &Self::Player) {
+    fn randomize_determination(&mut self, observer: Self::PlayerTag) {
         match observer {
             KPPlayer::First => {
                 self.second_player_card = KPCard::random_sample_neq_other(self.first_player_card)
@@ -93,18 +93,18 @@ impl Game for KPState {
         }
     }
 
-    fn current_player(&self) -> &Self::Player {
+    fn current_player(&self) -> Self::PlayerTag {
         match self.move_history.len() % 2 {
-            0 => &KPPlayer::First,
-            1 => &KPPlayer::Second,
+            0 => KPPlayer::First,
+            1 => KPPlayer::Second,
             _ => unreachable!(),
         }
     }
 
-    fn next_player(&self) -> &Self::Player {
+    fn next_player(&self) -> Self::PlayerTag {
         match self.current_player() {
-            KPPlayer::First => &KPPlayer::Second,
-            KPPlayer::Second => &KPPlayer::First,
+            KPPlayer::First => KPPlayer::Second,
+            KPPlayer::Second => KPPlayer::First,
         }
     }
 
@@ -135,20 +135,20 @@ impl Game for KPState {
                 self.award_pot(self.victor())
             }
             KPMove::Check => (),
-            KPMove::Fold => self.award_pot(*self.next_player()),
-            KPMove::Bet => self.player_bet(*self.current_player()),
+            KPMove::Fold => self.award_pot(self.next_player()),
+            KPMove::Bet => self.player_bet(self.current_player()),
             KPMove::Call => {
-                self.player_bet(*self.current_player());
+                self.player_bet(self.current_player());
                 self.award_pot(self.victor());
             }
         }
         self.move_history.push(*mov);
     }
 
-    fn result(&self, player: &Self::Player) -> Option<f64> {
+    fn result(&self, player: Self::PlayerTag) -> Option<f64> {
         if !self.game_over {
             None
-        } else if *player == KPPlayer::First {
+        } else if player == KPPlayer::First {
             Some(self.first_player_bank as f64)
         } else {
             Some(self.second_player_bank as f64)
@@ -194,7 +194,7 @@ pub fn playout_once(verbose: bool) -> f64 {
         state.make_move(&mov);
     }
 
-    match state.result(&KPPlayer::First) {
+    match state.result(KPPlayer::First) {
         Some(x) if x < 0.0 => {
             if verbose {
                 println!("ISMCTS Loses {:?}!", x);

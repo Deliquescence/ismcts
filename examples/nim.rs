@@ -38,21 +38,21 @@ impl NimState {
 
 impl Game for NimState {
     type Move = NimMove;
-    type Player = NimPlayer;
+    type PlayerTag = NimPlayer;
     type MoveList = Vec<NimMove>;
 
-    fn randomize_determination(&mut self, _observer: &Self::Player) {
+    fn randomize_determination(&mut self, _observer: Self::PlayerTag) {
         //No-op
     }
 
-    fn current_player(&self) -> &Self::Player {
-        &self.player_to_move
+    fn current_player(&self) -> Self::PlayerTag {
+        self.player_to_move
     }
 
-    fn next_player(&self) -> &Self::Player {
+    fn next_player(&self) -> Self::PlayerTag {
         match self.player_to_move {
-            NimPlayer::First => &NimPlayer::Second,
-            NimPlayer::Second => &NimPlayer::First,
+            NimPlayer::First => NimPlayer::Second,
+            NimPlayer::Second => NimPlayer::First,
         }
     }
 
@@ -75,10 +75,10 @@ impl Game for NimState {
         }
 
         self.heaps[mov.heap] -= mov.amount;
-        self.player_to_move = *self.next_player();
+        self.player_to_move = self.next_player();
     }
 
-    fn result(&self, player: &Self::Player) -> Option<f64> {
+    fn result(&self, player: Self::PlayerTag) -> Option<f64> {
         if self.heaps.iter().any(|amt| *amt > 0) {
             None
         } else {
@@ -173,13 +173,13 @@ pub fn main() {
         player_to_move: NimPlayer::Second,
     };
 
-    while game.result(&NimPlayer::Second).is_none() {
+    while game.result(NimPlayer::Second).is_none() {
         let mov = perfect_move(&mut game);
         println!("{:?}", &game);
         println!("Perfect move: {:?}", mov);
         game.make_move(&mov);
 
-        if game.result(&NimPlayer::Second).is_none() {
+        if game.result(NimPlayer::Second).is_none() {
             let mov = ismcts_move(&mut game).unwrap();
             println!("{:?}", &game);
             println!("ISMCTS move: {:?}", mov);
@@ -187,7 +187,7 @@ pub fn main() {
         }
     }
 
-    match game.result(&NimPlayer::First) {
+    match game.result(NimPlayer::First) {
         Some(x) if x < 0.0 => println!("ISMCTS Loses!"),
         Some(x) if x > 0.0 => println!("ISMCTS Wins!"),
         _ => unreachable!(),

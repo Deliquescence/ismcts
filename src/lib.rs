@@ -6,20 +6,20 @@ use std::sync::{Arc, RwLock};
 
 pub trait Game: Clone + Send + Sync {
     type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
-    type Player: Clone + Send + Sync;
+    type PlayerTag: Clone + Copy + Send + Sync + std::fmt::Debug;
     type MoveList: Clone + std::iter::IntoIterator<Item = Self::Move>;
 
-    fn randomize_determination(&mut self, observer: &Self::Player);
+    fn randomize_determination(&mut self, observer: Self::PlayerTag);
 
-    fn current_player(&self) -> &Self::Player;
+    fn current_player(&self) -> Self::PlayerTag;
 
-    fn next_player(&self) -> &Self::Player;
+    fn next_player(&self) -> Self::PlayerTag;
 
     fn available_moves(&self) -> Self::MoveList;
 
     fn make_move(&mut self, mov: &Self::Move);
 
-    fn result(&self, player: &Self::Player) -> Option<f64>;
+    fn result(&self, player: Self::PlayerTag) -> Option<f64>;
 
     fn random_rollout(&mut self) {
         let mut rng = thread_rng();
@@ -39,7 +39,7 @@ struct Node<G: Game> {
     mov: Option<G::Move>,
     parent: Option<Arc<Node<G>>>,
     children: RwLock<Vec<Arc<Node<G>>>>,
-    player_just_moved: Option<G::Player>,
+    player_just_moved: Option<G::PlayerTag>,
     statistics: RwLock<NodeStatistics>,
 }
 
@@ -96,13 +96,13 @@ impl<G: Game> Node<G> {
         choice
     }
 
-    fn add_child(self: Arc<Self>, mov: G::Move, player: G::Player) -> Arc<Node<G>> {
+    fn add_child(self: Arc<Self>, mov: G::Move, player_tag: G::PlayerTag) -> Arc<Node<G>> {
         let p = Arc::clone(&self);
         let child = Arc::new(Node {
             mov: Some(mov),
             parent: Some(p),
             children: Default::default(),
-            player_just_moved: Some(player),
+            player_just_moved: Some(player_tag),
             statistics: Default::default(),
         });
         self.children.write().unwrap().push(Arc::clone(&child));
@@ -114,7 +114,7 @@ impl<G: Game> Node<G> {
 
         statistics.visit_count += 1;
         if let Some(p) = &self.player_just_moved {
-            statistics.reward += terminal_state.result(&p).unwrap_or_default();
+            statistics.reward += terminal_state.result(*p).unwrap_or_default();
         }
     }
 }
@@ -221,9 +221,9 @@ fn ismcts_work_thread<G: Game>(root_state: G, root_node: Arc<Node<G>>, n_iterati
             .into_iter()
             .choose(&mut rng)
         {
-            let player = state.current_player().clone();
+            let player_tag = state.current_player();
             state.make_move(&m);
-            node = node.add_child(m, player);
+            node = node.add_child(m, player_tag);
         }
 
         //Simulate
