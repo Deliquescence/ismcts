@@ -125,7 +125,7 @@ pub trait ISMCTS<G: Game> {
         root_state: G,
         n_threads: usize,
         n_iterations_per_thread: usize,
-    ) -> G::Move {
+    ) -> Option<G::Move> {
         let root_node: Arc<Node<G>> = Arc::new(Node {
             mov: None,
             parent: None,
@@ -151,10 +151,7 @@ pub trait ISMCTS<G: Game> {
         children
             .iter()
             .max_by_key(|c| c.statistics.read().unwrap().visit_count)
-            .unwrap()
-            .mov
-            .clone()
-            .unwrap()
+            .map(|c| c.mov.clone().unwrap())
     }
 }
 

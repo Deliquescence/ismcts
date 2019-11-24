@@ -111,7 +111,7 @@ pub fn human_move(game: &mut NimState) -> NimMove {
     NimMove { heap, amount }
 }
 
-pub fn ismcts_move(game: &mut NimState) -> NimMove {
+pub fn ismcts_move(game: &mut NimState) -> Option<NimMove> {
     let mut ismcts = NimIsmcts {};
     ismcts.ismcts(game.clone(), 4, 1000000 / 4)
 }
@@ -182,7 +182,7 @@ pub fn main() {
         game.make_move(&mov);
 
         if game.result(&NimPlayer::Second).is_none() {
-            let mov = ismcts_move(&mut game);
+            let mov = ismcts_move(&mut game).unwrap();
             println!("{:?}", &game);
             println!("ISMCTS move: {:?}", mov);
             game.make_move(&mov);

@@ -157,14 +157,92 @@ impl Game for KPState {
 }
 
 pub fn main() {
+    // playout_once(true);
+
+    let n = 10000;
+    let mut results = 0.0;
+    for _ in 0..n {
+        let result = playout_once(false);
+        results += result;
+    }
+
+    println!("ISMCTS average result: {:?}", results / n as f64);
+}
+
+pub fn playout_once(verbose: bool) -> f64 {
     let mut state = KPState::new();
-    dbg!(&state);
-    dbg!(state.current_player());
-    dbg!(state.result(&KPPlayer::First));
-    state.random_rollout();
-    dbg!(&state);
-    dbg!(state.current_player());
-    dbg!(state.result(&KPPlayer::First));
+    if verbose {
+        dbg!(&state);
+    }
+
+    let mov = ismcts_policy(&mut state.clone()).unwrap();
+    if verbose {
+        println!("ISMCTS move: {:?}", mov);
+    }
+    state.make_move(&mov);
+
+    let mov = second_player_equilibruim_policy(&state).unwrap();
+    if verbose {
+        println!("Second player move: {:?}", mov);
+    }
+    state.make_move(&mov);
+
+    if let Some(mov) = ismcts_policy(&mut state.clone()) {
+        if verbose {
+            println!("ISMCTS move: {:?}", mov);
+        }
+        state.make_move(&mov);
+    }
+
+    match state.result(&KPPlayer::First) {
+        Some(x) if x < 0.0 => {
+            if verbose {
+                println!("ISMCTS Loses {:?}!", x);
+            }
+            x
+        }
+        Some(x) if x > 0.0 => {
+            if verbose {
+                println!("ISMCTS Wins {:?}!", x);
+            }
+            x
+        }
+        _ => unreachable!(),
+    }
+}
+
+pub struct KPIsmcts {}
+
+impl ISMCTS<KPState> for KPIsmcts {}
+
+pub fn ismcts_policy(state: &mut KPState) -> Option<KPMove> {
+    let mut ismcts = KPIsmcts {};
+    ismcts.ismcts(state.clone(), 4, 100000 / 4)
+}
+
+pub fn second_player_equilibruim_policy(state: &KPState) -> Option<KPMove> {
+    if state.move_history.len() != 1 {
+        None
+    } else {
+        //Second players options are always either check/bet or call/fold
+        let check_bet = match state.move_history[0] {
+            KPMove::Check => true,
+            KPMove::Bet => false,
+            _ => panic!("illegal first move was made"),
+        };
+        let mut rng = thread_rng();
+        let one_third = rng.gen_bool(1.0 / 3.0); //error[E0301]: cannot mutably borrow in a pattern guard
+        match state.second_player_card {
+            KPCard::King if check_bet => Some(KPMove::Bet),
+            KPCard::King => Some(KPMove::Call),
+            KPCard::Queen if check_bet => Some(KPMove::Check),
+            KPCard::Queen if one_third => Some(KPMove::Call),
+            KPCard::Queen => Some(KPMove::Fold),
+            KPCard::Jack if check_bet && one_third => Some(KPMove::Bet),
+            KPCard::Jack if check_bet => Some(KPMove::Check),
+            KPCard::Jack => Some(KPMove::Fold),
+        }
+    }
 }
 
 impl PartialOrd for KPCard {
