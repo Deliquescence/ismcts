@@ -135,9 +135,28 @@ impl<G: Game> IsmctsHandler<G> {
             statistics: Default::default(),
         });
         IsmctsHandler {
-            root_state, //todo implement a way to make a move and advance down the tree
+            root_state,
             root_node,
         }
+    }
+
+    pub fn make_move(&mut self, mov: &G::Move) {
+        assert!(
+            self.root_state
+                .available_moves()
+                .into_iter()
+                .any(|m| m == *mov),
+            "Move must be legal"
+        );
+        let node = {
+            let children = self.root_node.children.read().unwrap();
+            let child_node = children.iter().find(|c| c.mov.as_ref() == Some(&mov));
+            assert!(child_node.is_some(), "Move must be explored");
+            Arc::clone(child_node.unwrap())
+        };
+
+        self.root_state.make_move(&mov);
+        self.root_node = node;
     }
 
     pub fn run_iterations(&mut self, n_threads: usize, n_iterations_per_thread: usize) {
@@ -192,6 +211,9 @@ impl<G: Game> IsmctsHandler<G> {
             dbg!(&c.mov);
             dbg!(&*c.statistics.read().unwrap());
         }
+    }
+
+    pub fn debug_max_visits(&self) {
         let max_visit_count: usize = self
             .root_node
             .children
@@ -201,7 +223,11 @@ impl<G: Game> IsmctsHandler<G> {
             .map(|c| c.statistics.read().unwrap().visit_count)
             .max()
             .unwrap();
-        println!("Max visit count: {}", max_visit_count)
+        println!("Max visit count: {}", max_visit_count);
+    }
+
+    pub fn state(&self) -> &G {
+        &self.root_state
     }
 }
 
