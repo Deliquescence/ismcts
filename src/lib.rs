@@ -51,9 +51,9 @@ struct NodeStatistics {
 }
 
 impl NodeStatistics {
-    pub fn ucb(&self, exploration: f64) -> f64 {
+    pub fn ucb1(&self) -> f64 {
         (self.reward / self.visit_count as f64)
-            + exploration * ((self.availability_count as f64).ln() / self.visit_count as f64).sqrt()
+            + (2.0 * (self.availability_count as f64).ln() / self.visit_count as f64).sqrt()
     }
 }
 
@@ -89,7 +89,7 @@ impl<G: Game> Node<G> {
 
         let choice = legal_children
             .clone()
-            .max_by_key(|c| OrderedFloat::from(c.statistics.read().unwrap().ucb(0.7)))
+            .max_by_key(|c| OrderedFloat::from(c.statistics.read().unwrap().ucb1()))
             .cloned();
         //Update availibility count now
         legal_children.for_each(|c| c.statistics.write().unwrap().availability_count += 1);
