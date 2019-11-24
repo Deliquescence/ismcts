@@ -92,10 +92,6 @@ impl Game for NimState {
     }
 }
 
-pub struct NimIsmcts {}
-
-impl ISMCTS<NimState> for NimIsmcts {}
-
 pub fn human_move(game: &mut NimState) -> NimMove {
     let read_num = || -> usize {
         let mut input = String::new();
@@ -112,8 +108,10 @@ pub fn human_move(game: &mut NimState) -> NimMove {
 }
 
 pub fn ismcts_move(game: &mut NimState) -> Option<NimMove> {
-    let mut ismcts = NimIsmcts {};
-    ismcts.ismcts(game.clone(), 4, 1000000 / 4)
+    let mut ismcts = IsmctsHandler::new(game.clone());
+    ismcts.ismcts(4, 1000000 / 4);
+    // ismcts.debug_select();
+    ismcts.best_move()
 }
 
 pub fn perfect_move(game: &mut NimState) -> NimMove {

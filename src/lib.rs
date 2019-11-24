@@ -5,7 +5,7 @@ use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock};
 
 pub trait Game: Clone + Send + Sync {
-    type Move: Clone + PartialEq + Send + Sync;
+    type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
     type Player: Clone + Send + Sync;
     type MoveList: Clone + std::iter::IntoIterator<Item = Self::Move>;
 
@@ -119,39 +119,76 @@ impl<G: Game> Node<G> {
     }
 }
 
-pub trait ISMCTS<G: Game> {
-    fn ismcts(
-        &mut self,
-        root_state: G,
-        n_threads: usize,
-        n_iterations_per_thread: usize,
-    ) -> Option<G::Move> {
-        let root_node: Arc<Node<G>> = Arc::new(Node {
+pub struct IsmctsHandler<G: Game> {
+    root_state: G,
+    root_node: Arc<Node<G>>,
+}
+
+impl<G: Game> IsmctsHandler<G> {
+    pub fn new(root_state: G) -> Self {
+        let root_node = Arc::new(Node {
             mov: None,
             parent: None,
             children: Default::default(),
             player_just_moved: None,
             statistics: Default::default(),
         });
+        IsmctsHandler {
+            root_state, //todo implement a way to make a move and advance down the tree
+            root_node,
+        }
+    }
 
+    pub fn ismcts(&mut self, n_threads: usize, n_iterations_per_thread: usize) {
         thread::scope(|s| {
             for _ in 0..n_threads {
                 s.spawn(|_| {
                     ismcts_work_thread(
-                        root_state.clone(),
-                        Arc::clone(&root_node),
+                        self.root_state.clone(),
+                        Arc::clone(&self.root_node),
                         n_iterations_per_thread,
                     )
                 });
             }
         })
         .unwrap();
+    }
 
-        let children = root_node.children.read().unwrap();
+    pub fn best_move(&self) -> Option<G::Move> {
+        let children = self.root_node.children.read().unwrap();
         children
             .iter()
             .max_by_key(|c| c.statistics.read().unwrap().visit_count)
             .map(|c| c.mov.clone().unwrap())
+    }
+
+    pub fn debug_select(&self) {
+        let mut node = Arc::clone(&self.root_node);
+        let mut state = self.root_state.clone();
+        let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
+        let mut depth = 0;
+        while !available_moves.is_empty()
+            && node
+                .untried_moves(&available_moves)
+                .into_iter()
+                .next()
+                .is_none()
+        {
+            println!("DEPTH {}", depth);
+            dbg!(&node.mov);
+            dbg!(&node.statistics.read().unwrap());
+
+            node = node.select_child(&available_moves).unwrap();
+            state.make_move(&node.mov.clone().unwrap());
+            available_moves = state.available_moves().into_iter().collect();
+            depth += 1;
+        }
+    }
+
+    pub fn debug_children(&self) {
+        for c in self.root_node.children.read().unwrap().iter() {
+            dbg!(&c.statistics.read().unwrap());
+        }
     }
 }
 
