@@ -213,17 +213,19 @@ impl<G: Game> IsmctsHandler<G> {
         }
     }
 
-    pub fn debug_max_visits(&self) {
-        let max_visit_count: usize = self
-            .root_node
+    pub fn max_visits(&self) -> usize {
+        self.root_node
             .children
             .read()
             .unwrap()
             .iter()
             .map(|c| c.statistics.read().unwrap().visit_count)
             .max()
-            .unwrap();
-        println!("Max visit count: {}", max_visit_count);
+            .unwrap()
+    }
+
+    pub fn debug_max_visits(&self) {
+        println!("Max visit count: {}", self.max_visits());
     }
 
     pub fn state(&self) -> &G {
