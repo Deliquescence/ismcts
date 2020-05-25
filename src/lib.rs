@@ -224,6 +224,16 @@ impl<G: Game> IsmctsHandler<G> {
             .unwrap()
     }
 
+    pub fn total_visits(&self) -> usize {
+        self.root_node
+            .children
+            .read()
+            .unwrap()
+            .iter()
+            .map(|c| c.statistics.read().unwrap().visit_count)
+            .sum::<usize>()
+    }
+
     pub fn debug_max_visits(&self) {
         println!("Max visit count: {}", self.max_visits());
     }
