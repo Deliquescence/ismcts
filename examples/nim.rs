@@ -1,5 +1,5 @@
 use ismcts::*;
-use std::iter;
+use std::{iter, time::Duration};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NimMode {
@@ -165,6 +165,19 @@ pub fn perfect_move(game: &mut NimState) -> NimMove {
 }
 
 pub fn main() {
+    let game = NimState {
+        heaps: vec![3, 5, 6, 100],
+        mode: NimMode::Misere,
+        player_to_move: NimPlayer::Second,
+    };
+
+    let mut ismcts = IsmctsHandler::new(game.clone());
+    ismcts.run_timed(1, Duration::from_secs(5));
+    ismcts.debug_max_visits();
+}
+
+#[allow(dead_code)]
+fn maintain_win() {
     // Pretend the perfect algorithm moved first and got into a winning position
     // Test if ismcts can maintain the win
     let mut game = NimState {
