@@ -1,5 +1,5 @@
 use ismcts::*;
-use std::{iter, time::Duration};
+use std::iter;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NimMode {
@@ -172,7 +172,7 @@ pub fn main() {
     };
 
     let mut ismcts = IsmctsHandler::new(game.clone());
-    ismcts.run_timed(1, Duration::from_secs(5));
+    ismcts.run_iterations(1, 100_000);
     ismcts.debug_max_visits();
 }
 
