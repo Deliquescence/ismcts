@@ -67,38 +67,30 @@ impl<G: Game> Node<G> {
             .any(|c| c.mov.as_ref().unwrap() == mov)
     }
 
-    fn untried_moves<'m, M>(
-        &self,
-        legal_moves: &'m M,
-    ) -> impl std::iter::IntoIterator<Item = G::Move>
-    where
-        M: Clone + std::iter::IntoIterator<Item = G::Move>,
-        <G as Game>::Move: 'm,
-    {
+    fn untried_moves<'m>(&self, legal_moves: &'m [G::Move]) -> Vec<G::Move> {
         legal_moves
-            .clone()
             .into_iter()
             .filter(|m| !self.move_tried(m))
+            .cloned()
             .collect::<Vec<_>>()
     }
 
-    fn select_child<M>(&self, legal_moves: &M) -> Option<Arc<Node<G>>>
-    where
-        M: Clone + std::iter::IntoIterator<Item = G::Move>,
-    {
-        let legal_moves: Vec<_> = legal_moves.clone().into_iter().collect();
+    fn select_child(&self, legal_moves: &[G::Move]) -> Option<Arc<Node<G>>> {
         let children = self.children.read().unwrap();
-        let legal_children = children
+        let legal_children: Vec<_> = children
             .iter()
-            .filter(|c| legal_moves.iter().any(|m| c.mov.as_ref().unwrap() == m));
+            .filter(|c| legal_moves.iter().any(|m| c.mov.as_ref().unwrap() == m))
+            .collect(); // Need to enumerate twice
 
         let choice = legal_children
-            .clone()
+            .iter()
             .max_by_key(|c| OrderedFloat::from(c.statistics.read().unwrap().ucb1()))
             .cloned();
         //Update availibility count now
-        legal_children.for_each(|c| c.statistics.write().unwrap().availability_count += 1);
-        choice
+        legal_children
+            .iter()
+            .for_each(|c| c.statistics.write().unwrap().availability_count += 1);
+        choice.cloned()
     }
 
     fn add_child(self: Arc<Self>, mov: G::Move, player_tag: G::PlayerTag) -> Arc<Node<G>> {
@@ -258,8 +250,8 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     let mut untried_moves;
     loop {
         available_moves = state.available_moves().into_iter().collect();
-        untried_moves = node.untried_moves(&available_moves).into_iter().peekable();
-        if available_moves.is_empty() || untried_moves.peek().is_some() {
+        untried_moves = node.untried_moves(&available_moves);
+        if available_moves.is_empty() || !untried_moves.is_empty() {
             break;
         }
         node = node.select_child(&available_moves).unwrap();
@@ -267,7 +259,7 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     }
 
     //Expand
-    if let Some(m) = untried_moves.choose(&mut rng) {
+    if let Some(m) = untried_moves.into_iter().choose(&mut rng) {
         let player_tag = state.current_player();
         state.make_move(&m);
         node = node.add_child(m, player_tag);
