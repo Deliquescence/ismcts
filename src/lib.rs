@@ -67,9 +67,13 @@ impl<G: Game> Node<G> {
             .any(|c| c.mov.as_ref().unwrap() == mov)
     }
 
-    fn untried_moves<M>(&self, legal_moves: &M) -> impl std::iter::IntoIterator<Item = G::Move> + '_
+    fn untried_moves<'m, M>(
+        &self,
+        legal_moves: &'m M,
+    ) -> impl std::iter::IntoIterator<Item = G::Move>
     where
         M: Clone + std::iter::IntoIterator<Item = G::Move>,
+        <G as Game>::Move: 'm,
     {
         legal_moves
             .clone()
@@ -250,25 +254,20 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     state.randomize_determination(state.current_player());
 
     // Select
-    let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
-    while !available_moves.is_empty()
-        && node
-            .untried_moves(&available_moves)
-            .into_iter()
-            .next()
-            .is_none()
-    {
+    let mut available_moves: Vec<_>;
+    let mut untried_moves;
+    loop {
+        available_moves = state.available_moves().into_iter().collect();
+        untried_moves = node.untried_moves(&available_moves).into_iter().peekable();
+        if available_moves.is_empty() || untried_moves.peek().is_some() {
+            break;
+        }
         node = node.select_child(&available_moves).unwrap();
         state.make_move(&node.mov.clone().unwrap());
-        available_moves = state.available_moves().into_iter().collect();
     }
 
     //Expand
-    if let Some(m) = node
-        .untried_moves(&available_moves)
-        .into_iter()
-        .choose(&mut rng)
-    {
+    if let Some(m) = untried_moves.choose(&mut rng) {
         let player_tag = state.current_player();
         state.make_move(&m);
         node = node.add_child(m, player_tag);
