@@ -9,3 +9,6 @@ license = "MIT OR Apache-2.0"
 rand = "0.7.2"
 ordered-float = "1.0.2"
 crossbeam = "0.7.3"
+
+[profile.release]
+debug = true
