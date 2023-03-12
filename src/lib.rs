@@ -59,18 +59,13 @@ impl NodeStatistics {
 }
 
 impl<G: Game> Node<G> {
-    fn move_tried(&self, mov: &G::Move) -> bool {
-        self.children
-            .read()
-            .unwrap()
-            .iter()
-            .any(|c| c.mov.as_ref().unwrap() == mov)
-    }
-
     fn untried_moves<'m>(&self, legal_moves: &'m [G::Move]) -> Vec<G::Move> {
+        let children = self.children.read().unwrap();
+        let move_tried = |mov: &G::Move| children.iter().any(|c| c.mov.as_ref().unwrap() == mov);
+
         legal_moves
             .into_iter()
-            .filter(|m| !self.move_tried(m))
+            .filter(|m| !move_tried(m))
             .cloned()
             .collect::<Vec<_>>()
     }
