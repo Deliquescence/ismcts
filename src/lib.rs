@@ -210,7 +210,7 @@ impl<G: Game> IsmctsHandler<G> {
             .iter()
             .map(|c| c.statistics.read().unwrap().visit_count)
             .max()
-            .unwrap()
+            .unwrap_or_default()
     }
 
     pub fn total_visits(&self) -> usize {
