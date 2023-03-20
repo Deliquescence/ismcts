@@ -196,9 +196,21 @@ impl<G: Game> IsmctsHandler<G> {
     }
 
     pub fn debug_children(&self) {
-        for c in self.root_node.children.read().unwrap().iter() {
+        let mut children: Vec<_> = self
+            .root_node
+            .children
+            .read()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect();
+        children.sort_by_key(|c| c.statistics.read().unwrap().visit_count);
+        for c in children {
+            let statistics = c.statistics.read().unwrap();
             dbg!(&c.mov);
-            dbg!(&*c.statistics.read().unwrap());
+            dbg!(&*statistics);
+            dbg!(statistics.ucb1());
+            println!();
         }
     }
 
