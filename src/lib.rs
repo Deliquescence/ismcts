@@ -53,8 +53,17 @@ struct NodeStatistics {
 
 impl NodeStatistics {
     pub fn ucb1(&self) -> f64 {
-        (self.reward / self.visit_count as f64)
-            + (2.0 * (self.availability_count as f64).ln() / self.visit_count as f64).sqrt()
+        if self.visit_count == 0 || self.availability_count == 0 {
+            // avoid divide by zero panic when visit_count is 0
+            // and NaN return when availability_count is 0
+            return std::f64::MAX;
+        }
+
+        let exploitation = self.reward / self.visit_count as f64;
+        let exploration =
+            (2.0 * (self.availability_count as f64).ln() / self.visit_count as f64).sqrt();
+
+        exploitation + exploration
     }
 }
 
@@ -323,4 +332,42 @@ where
         }
     })
     .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ucb1_happy_path() {
+        let stats = NodeStatistics {
+            visit_count: 1,
+            availability_count: 1,
+            reward: 1.0,
+        };
+        let ucb1_value = stats.ucb1();
+        assert!(ucb1_value.is_finite());
+    }
+
+    #[test]
+    fn test_ucb1_visit_count_zero() {
+        let stats = NodeStatistics {
+            visit_count: 0,
+            availability_count: 10, // Non-zero to isolate the visit_count case
+            reward: 1.0,
+        };
+
+        assert_eq!(stats.ucb1(), std::f64::MAX);
+    }
+
+    #[test]
+    fn test_ucb1_availability_count_zero() {
+        let stats = NodeStatistics {
+            visit_count: 10, // Non-zero to isolate the availability_count case
+            availability_count: 0,
+            reward: 1.0,
+        };
+
+        assert_eq!(stats.ucb1(), std::f64::MAX);
+    }
 }
