@@ -61,7 +61,7 @@ impl Game for NimState {
             .iter()
             .enumerate()
             .filter(|(_i, amt)| **amt > 0)
-            .flat_map(|(i, amt)| iter::repeat(i).zip((1..=*amt).into_iter()))
+            .flat_map(|(i, amt)| iter::repeat(i).zip(1..=*amt))
             .map(|(heap, amount)| NimMove { heap, amount })
             .collect()
     }

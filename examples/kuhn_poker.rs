@@ -35,7 +35,7 @@ pub struct KPState {
 }
 
 impl KPState {
-    pub fn new() -> Self {
+    pub fn random_starting_position() -> Self {
         let first_player_card = KPCard::random_sample();
         let second_player_card = KPCard::random_sample_neq_other(first_player_card);
 
@@ -131,7 +131,7 @@ impl Game for KPState {
             "making move when game is over"
         );
         match mov {
-            KPMove::Check if self.move_history.get(0) == Some(&KPMove::Check) => {
+            KPMove::Check if self.move_history.first() == Some(&KPMove::Check) => {
                 self.award_pot(self.victor())
             }
             KPMove::Check => (),
@@ -170,7 +170,7 @@ pub fn main() {
 }
 
 pub fn playout_once(verbose: bool) -> f64 {
-    let mut state = KPState::new();
+    let mut state = KPState::random_starting_position();
     if verbose {
         dbg!(&state);
     }

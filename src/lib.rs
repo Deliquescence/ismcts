@@ -59,10 +59,10 @@ impl NodeStatistics {
 }
 
 impl<G: Game> Node<G> {
-    fn untried_moves<'m>(&self, legal_moves: &'m [G::Move]) -> Vec<G::Move> {
+    fn untried_moves(&self, legal_moves: &[G::Move]) -> Vec<G::Move> {
         let children = self.children.read().unwrap();
         legal_moves
-            .into_iter()
+            .iter()
             .filter(|mov: &&G::Move| !children.iter().any(|c| c.mov.as_ref().unwrap() == *mov))
             .cloned()
             .collect::<Vec<_>>()
@@ -145,12 +145,12 @@ impl<G: Game> IsmctsHandler<G> {
         );
         let node = {
             let children = self.root_node.children.read().unwrap();
-            let child_node = children.iter().find(|c| c.mov.as_ref() == Some(&mov));
+            let child_node = children.iter().find(|c| c.mov.as_ref() == Some(mov));
             assert!(child_node.is_some(), "Move must be explored");
             Arc::clone(child_node.unwrap())
         };
 
-        self.root_state.make_move(&mov);
+        self.root_state.make_move(mov);
         self.root_node = node;
     }
 
