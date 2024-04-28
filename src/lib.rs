@@ -79,7 +79,7 @@ impl<G: Game> Node<G> {
             .iter()
             .max_by_key(|c| OrderedFloat::from(c.statistics.read().unwrap().ucb1()))
             .cloned();
-        //Update availibility count now
+        // To avoid backprop needing to recalculate/store which nodes were available, update availablity count now
         legal_children
             .iter()
             .for_each(|c| c.statistics.write().unwrap().availability_count += 1);
@@ -93,7 +93,13 @@ impl<G: Game> Node<G> {
             parent: Some(p),
             children: Default::default(),
             player_just_moved: Some(player_tag),
-            statistics: Default::default(),
+            statistics: RwLock::new(NodeStatistics {
+                // We update the availabilty count during selection instead of backprop,
+                // but the visit count _is_ updated during backprop, so the availability
+                // of the new node needs a +1 because expansion happens after selection.
+                availability_count: 1,
+                ..Default::default()
+            }),
         });
         self.children.write().unwrap().push(Arc::clone(&child));
         child
