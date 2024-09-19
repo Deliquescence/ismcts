@@ -107,14 +107,7 @@ pub fn human_move(game: &mut NimState) -> NimMove {
     NimMove { heap, amount }
 }
 
-pub fn ismcts_move(game: &mut NimState) -> Option<NimMove> {
-    let mut ismcts = IsmctsHandler::new(game.clone());
-    ismcts.run_iterations(4, 1000000 / 4);
-    // ismcts.debug_select();
-    ismcts.best_move()
-}
-
-pub fn perfect_move(game: &mut NimState) -> NimMove {
+pub fn perfect_move(game: &NimState) -> NimMove {
     // https://en.wikipedia.org/wiki/Nim#Example_implementation
 
     let is_endgame = game.heaps.iter().filter(|c| **c > 1).count() <= 1;
@@ -165,42 +158,60 @@ pub fn perfect_move(game: &mut NimState) -> NimMove {
 }
 
 pub fn main() {
-    let game = NimState {
-        heaps: vec![3, 5, 6, 100],
-        mode: NimMode::Misere,
-        player_to_move: NimPlayer::Second,
-    };
+    maintain_win();
+    // let game = NimState {
+    //     heaps: vec![3, 5, 6, 100],
+    //     mode: NimMode::Misere,
+    //     player_to_move: NimPlayer::Second,
+    // };
 
-    let mut ismcts = IsmctsHandler::new(game.clone());
-    ismcts.run_iterations(1, 100_000);
-    ismcts.debug_max_visits();
+    // let mut ismcts = IsmctsHandler::new(game.clone());
+    // ismcts.run_iterations(1, 100_000);
+    // ismcts.debug_max_visits();
 }
+
+const N_THREADS: usize = 8;
 
 #[allow(dead_code)]
 fn maintain_win() {
-    // Pretend the perfect algorithm moved first and got into a winning position
-    // Test if ismcts can maintain the win
-    let mut game = NimState {
-        heaps: vec![3, 5, 6],
+    let heaps = vec![3, 5, 6];
+    let nim_sum = heaps.iter().fold(0, |acc, amt| acc ^ amt);
+
+    let game = NimState {
+        heaps,
         mode: NimMode::Misere,
-        player_to_move: NimPlayer::Second,
+        // Winning strategy is to end turn with nim sum 0
+        player_to_move: if nim_sum == 0 {
+            // Perfect algorithm plays the losing side
+            NimPlayer::Second
+        } else {
+            // Allow ISMCTS to play from the winning position
+            NimPlayer::First
+        },
     };
 
-    while game.result(NimPlayer::Second).is_none() {
-        let mov = perfect_move(&mut game);
-        println!("{:?}", &game);
-        println!("Perfect move: {:?}", mov);
-        game.make_move(&mov);
+    let mut ismcts = IsmctsHandler::new(game);
+    while ismcts.state().result(NimPlayer::First).is_none() {
+        ismcts.run_iterations(N_THREADS, ismcts.state().available_moves().len());
 
-        if game.result(NimPlayer::Second).is_none() {
-            let mov = ismcts_move(&mut game).unwrap();
-            println!("{:?}", &game);
+        println!("{:?}", &ismcts.state());
+        let perfect_mov = perfect_move(ismcts.state());
+        println!("Perfect move: {:?}", perfect_mov);
+
+        if ismcts.state().current_player() == NimPlayer::First {
+            ismcts.run_iterations(N_THREADS, 100000);
+            let mov = ismcts.best_move().unwrap();
+            ismcts.debug_children();
+
             println!("ISMCTS move: {:?}", mov);
-            game.make_move(&mov);
+            ismcts.make_move(&mov);
+        } else {
+            ismcts.make_move(&perfect_mov);
         }
+        println!();
     }
 
-    match game.result(NimPlayer::First) {
+    match ismcts.state().result(NimPlayer::First) {
         Some(x) if x < 0.0 => println!("ISMCTS Loses!"),
         Some(x) if x > 0.0 => println!("ISMCTS Wins!"),
         _ => unreachable!(),
