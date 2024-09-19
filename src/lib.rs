@@ -2,7 +2,7 @@ use crossbeam::thread;
 use ordered_float::OrderedFloat;
 use rand::prelude::*;
 use std::marker::{Send, Sync};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 use std::time::{Duration, Instant};
 
 pub trait Game: Clone + Send + Sync {
@@ -38,7 +38,7 @@ pub trait Game: Clone + Send + Sync {
 struct Node<G: Game> {
     /// Move which entered this node
     mov: Option<G::Move>,
-    parent: Option<Arc<Node<G>>>,
+    parent: Option<Weak<Node<G>>>,
     children: RwLock<Vec<Arc<Node<G>>>>,
     player_just_moved: Option<G::PlayerTag>,
     statistics: RwLock<NodeStatistics>,
@@ -87,7 +87,7 @@ impl<G: Game> Node<G> {
     }
 
     fn add_child(self: Arc<Self>, mov: G::Move, player_tag: G::PlayerTag) -> Arc<Node<G>> {
-        let p = Arc::clone(&self);
+        let p = Arc::downgrade(&self);
         let child = Arc::new(Node {
             mov: Some(mov),
             parent: Some(p),
@@ -280,10 +280,11 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     state.random_rollout();
 
     //Backprop
-    let mut backprop_node = &node;
+    let mut backprop_node = node;
     loop {
         backprop_node.update(&state);
-        if let Some(n) = &backprop_node.parent {
+        let parent = backprop_node.parent.as_ref().and_then(Weak::upgrade);
+        if let Some(n) = parent {
             backprop_node = n;
         } else {
             break;
