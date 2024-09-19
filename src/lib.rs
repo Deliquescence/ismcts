@@ -280,10 +280,14 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     state.random_rollout();
 
     //Backprop
-    let mut backprop_node = Some(node);
-    while let Some(n) = backprop_node {
-        n.update(&state);
-        backprop_node = n.parent.clone();
+    let mut backprop_node = &node;
+    loop {
+        backprop_node.update(&state);
+        if let Some(n) = &backprop_node.parent {
+            backprop_node = n;
+        } else {
+            break;
+        }
     }
 }
 
