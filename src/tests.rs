@@ -5,7 +5,7 @@ struct TenMoveGame {
     moves: Vec<u8>,
 }
 
-const TOTAL_TURNS: usize = 5;
+const TOTAL_TURNS: usize = 2;
 impl Game for TenMoveGame {
     type Move = u8;
 
@@ -45,28 +45,41 @@ impl Game for TenMoveGame {
     }
 }
 
+const ITERATIONS: usize = 1000;
+
 #[test]
 pub fn number_of_children_1_thread() {
-    let game = TenMoveGame::default();
-    let mut ismcts = IsmctsHandler::new(game);
-    ismcts.run_iterations(1, 1000);
-
-    let children = ismcts.root_node.children.read().unwrap();
-    assert_eq!(10, children.len());
-    for child in children.iter() {
-        assert_eq!(10, child.children.read().unwrap().len());
-    }
+    number_of_children(1);
 }
 
 #[test]
 pub fn number_of_children_4_threads() {
+    number_of_children(4);
+}
+
+fn number_of_children(n_threads: usize) {
     let game = TenMoveGame::default();
     let mut ismcts = IsmctsHandler::new(game);
-    ismcts.run_iterations(4, 1000);
+    ismcts.run_iterations(n_threads, ITERATIONS);
+    // ismcts.debug_children();
 
     let children = ismcts.root_node.children.read().unwrap();
+
+    let total_iterations = ITERATIONS * n_threads;
     assert_eq!(10, children.len());
+    assert_eq!(
+        total_iterations,
+        children
+            .iter()
+            .map(|c| c.statistics.read().unwrap().visit_count)
+            .sum()
+    );
+
     for child in children.iter() {
+        // assert_eq!(
+        //     total_iterations,
+        //     child.statistics.read().unwrap().availability_count
+        // );
         assert_eq!(10, child.children.read().unwrap().len());
     }
 }
