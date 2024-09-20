@@ -90,6 +90,14 @@ impl<G: Game> Node<G> {
     }
 
     fn add_child(self: Arc<Self>, mov: G::Move, player_tag: G::PlayerTag) -> Arc<Node<G>> {
+        // Obtain a write lock on children to ensure that no other thread can add a child at the same time
+        let mut children = self.children.write().unwrap();
+
+        // Check if the child with the same move already exists (race condition prevention)
+        if let Some(existing_child) = children.iter().find(|c| c.mov.as_ref() == Some(&mov)) {
+            return Arc::clone(existing_child);
+        }
+
         let p = Arc::downgrade(&self);
         let child = Arc::new(Node {
             mov: Some(mov),
@@ -104,7 +112,8 @@ impl<G: Game> Node<G> {
                 ..Default::default()
             }),
         });
-        self.children.write().unwrap().push(Arc::clone(&child));
+
+        children.push(Arc::clone(&child));
         child
     }
 
