@@ -5,6 +5,9 @@ use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock, Weak};
 use std::time::{Duration, Instant};
 
+#[cfg(test)]
+mod tests;
+
 pub trait Game: Clone + Send + Sync {
     type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
     type PlayerTag: Clone + Copy + Send + Sync + std::fmt::Debug;
