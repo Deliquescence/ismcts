@@ -34,6 +34,13 @@ impl NimState {
             .max_by_key(|(_i, &c)| c)
             .map(|(i, &c)| (i, c))
     }
+
+    fn next_player(&self) -> NimPlayer {
+        match self.player_to_move {
+            NimPlayer::First => NimPlayer::Second,
+            NimPlayer::Second => NimPlayer::First,
+        }
+    }
 }
 
 impl Game for NimState {
@@ -47,13 +54,6 @@ impl Game for NimState {
 
     fn current_player(&self) -> Self::PlayerTag {
         self.player_to_move
-    }
-
-    fn next_player(&self) -> Self::PlayerTag {
-        match self.player_to_move {
-            NimPlayer::First => NimPlayer::Second,
-            NimPlayer::Second => NimPlayer::First,
-        }
     }
 
     fn available_moves(&self) -> Self::MoveList {

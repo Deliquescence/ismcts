@@ -17,8 +17,6 @@ pub trait Game: Clone + Send + Sync {
 
     fn current_player(&self) -> Self::PlayerTag;
 
-    fn next_player(&self) -> Self::PlayerTag;
-
     fn available_moves(&self) -> Self::MoveList;
 
     fn make_move(&mut self, mov: &Self::Move);

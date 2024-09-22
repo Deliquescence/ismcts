@@ -19,10 +19,6 @@ impl Game for TenMoveGame {
         self.moves.len() % 2
     }
 
-    fn next_player(&self) -> Self::PlayerTag {
-        (self.moves.len() + 1) % 2
-    }
-
     fn available_moves(&self) -> Self::MoveList {
         if self.moves.len() > TOTAL_TURNS {
             Vec::new()

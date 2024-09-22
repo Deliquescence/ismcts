@@ -75,6 +75,13 @@ impl KPState {
         }
         self.pot += 1;
     }
+
+    fn next_player(&self) -> KPPlayer {
+        match self.current_player() {
+            KPPlayer::First => KPPlayer::Second,
+            KPPlayer::Second => KPPlayer::First,
+        }
+    }
 }
 
 impl Game for KPState {
@@ -98,13 +105,6 @@ impl Game for KPState {
             0 => KPPlayer::First,
             1 => KPPlayer::Second,
             _ => unreachable!(),
-        }
-    }
-
-    fn next_player(&self) -> Self::PlayerTag {
-        match self.current_player() {
-            KPPlayer::First => KPPlayer::Second,
-            KPPlayer::Second => KPPlayer::First,
         }
     }
 
@@ -159,7 +159,7 @@ impl Game for KPState {
 pub fn main() {
     // playout_once(true);
 
-    let n = 10000;
+    let n = 1000;
     let mut results = 0.0;
     for _ in 0..n {
         let result = playout_once(false);
