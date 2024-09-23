@@ -11,7 +11,7 @@ mod tests;
 pub trait Game: Clone + Send + Sync {
     type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
     type PlayerTag: Clone + Copy + Send + Sync + std::fmt::Debug;
-    type MoveList: Clone + std::iter::IntoIterator<Item = Self::Move>;
+    type MoveList: std::iter::IntoIterator<Item = Self::Move>;
 
     fn randomize_determination(&mut self, observer: Self::PlayerTag);
 
