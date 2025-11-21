@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [ '**' ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Rust version from Cargo.toml
+        id: rust-version
+        run: |
+          RUST_VERSION=$(grep '^rust-version' Cargo.toml | sed 's/rust-version = "\(.*\)"/\1/')
+          echo "version=$RUST_VERSION" >> $GITHUB_OUTPUT
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Rust version from Cargo.toml
+        id: rust-version
+        run: |
+          RUST_VERSION=$(grep '^rust-version' Cargo.toml | sed 's/rust-version = "\(.*\)"/\1/')
+          echo "version=$RUST_VERSION" >> $GITHUB_OUTPUT
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Rust version from Cargo.toml
+        id: rust-version
+        run: |
+          RUST_VERSION=$(grep '^rust-version' Cargo.toml | sed 's/rust-version = "\(.*\)"/\1/')
+          echo "version=$RUST_VERSION" >> $GITHUB_OUTPUT
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-version.outputs.version }}
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
