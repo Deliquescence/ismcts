@@ -87,7 +87,6 @@ impl KPState {
 impl Game for KPState {
     type Move = KPMove;
     type PlayerTag = KPPlayer;
-    type MoveList = Vec<KPMove>;
 
     fn randomize_determination(&mut self, observer: Self::PlayerTag) {
         match observer {
@@ -108,7 +107,7 @@ impl Game for KPState {
         }
     }
 
-    fn available_moves(&self) -> Self::MoveList {
+    fn available_moves(&self) -> Vec<Self::Move> {
         match self.move_history.len() {
             0 => vec![KPMove::Check, KPMove::Bet],
             1 => match self.move_history[0] {

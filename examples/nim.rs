@@ -46,7 +46,6 @@ impl NimState {
 impl Game for NimState {
     type Move = NimMove;
     type PlayerTag = NimPlayer;
-    type MoveList = Vec<NimMove>;
 
     fn randomize_determination(&mut self, _observer: Self::PlayerTag) {
         //No-op
@@ -56,7 +55,7 @@ impl Game for NimState {
         self.player_to_move
     }
 
-    fn available_moves(&self) -> Self::MoveList {
+    fn available_moves(&self) -> Vec<Self::Move> {
         self.heaps
             .iter()
             .enumerate()

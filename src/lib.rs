@@ -11,13 +11,12 @@ mod tests;
 pub trait Game: Clone + Send + Sync {
     type Move: Clone + PartialEq + Send + Sync + std::fmt::Debug;
     type PlayerTag: Clone + Copy + Send + Sync + std::fmt::Debug;
-    type MoveList: std::iter::IntoIterator<Item = Self::Move>;
 
     fn randomize_determination(&mut self, observer: Self::PlayerTag);
 
     fn current_player(&self) -> Self::PlayerTag;
 
-    fn available_moves(&self) -> Self::MoveList;
+    fn available_moves(&self) -> Vec<Self::Move>;
 
     fn make_move(&mut self, mov: &Self::Move);
 
@@ -26,9 +25,10 @@ pub trait Game: Clone + Send + Sync {
     fn random_rollout(&mut self) {
         let mut rng = thread_rng();
         while self.result(self.current_player()).is_none() {
-            let mov = self.available_moves().into_iter().choose(&mut rng);
+            let moves = self.available_moves();
+            let mov = moves.choose(&mut rng);
             if let Some(m) = mov {
-                self.make_move(&m);
+                self.make_move(m);
             } else {
                 break;
             }
@@ -149,8 +149,8 @@ impl<G: Game> IsmctsHandler<G> {
         assert!(
             self.root_state
                 .available_moves()
-                .into_iter()
-                .any(|m| m == *mov),
+                .iter()
+                .any(|m| m == mov),
             "Move must be legal"
         );
         let node = {
@@ -191,7 +191,7 @@ impl<G: Game> IsmctsHandler<G> {
     pub fn debug_select(&self) {
         let mut node = Arc::clone(&self.root_node);
         let mut state = self.root_state.clone();
-        let mut available_moves: Vec<_> = state.available_moves().into_iter().collect();
+        let mut available_moves = state.available_moves();
         let mut depth = 0;
         while !available_moves.is_empty()
             && node
@@ -206,7 +206,7 @@ impl<G: Game> IsmctsHandler<G> {
 
             node = node.select_child(&available_moves).unwrap();
             state.make_move(&node.mov.clone().unwrap());
-            available_moves = state.available_moves().into_iter().collect();
+            available_moves = state.available_moves();
             depth += 1;
         }
     }
@@ -267,10 +267,10 @@ fn ismcts_one_iteration<G: Game>(mut state: G, mut node: Arc<Node<G>>) {
     state.randomize_determination(state.current_player());
 
     // Select
-    let mut available_moves: Vec<_>;
+    let mut available_moves;
     let mut untried_moves;
     loop {
-        available_moves = state.available_moves().into_iter().collect();
+        available_moves = state.available_moves();
         untried_moves = node.untried_moves(&available_moves);
         if available_moves.is_empty() || !untried_moves.is_empty() {
             break;

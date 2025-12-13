@@ -11,15 +11,13 @@ impl Game for TenMoveGame {
 
     type PlayerTag = usize;
 
-    type MoveList = Vec<u8>;
-
     fn randomize_determination(&mut self, _observer: Self::PlayerTag) {}
 
     fn current_player(&self) -> Self::PlayerTag {
         self.moves.len() % 2
     }
 
-    fn available_moves(&self) -> Self::MoveList {
+    fn available_moves(&self) -> Vec<u8> {
         if self.moves.len() > TOTAL_TURNS {
             Vec::new()
         } else {
